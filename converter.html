@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        /* 화면 전체 여백 제거 및 꽉 채우기 */
+        html, body {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; font-family: sans-serif;
+            background-color: #fff;
+        }
+
+        /* 전체 레이아웃 구성을 위한 그리드 */
+        .wrapper {
+            display: grid;
+            grid-template-areas: 
+                "top top top"
+                "left main right"
+                "bottom bottom bottom";
+            grid-template-rows: 150px 1fr 150px; /* 상하 광고 높이 */
+            grid-template-columns: 250px 1fr 250px; /* 좌우 광고 너비 */
+            width: 100vw; height: 100vh;
+        }
+
+        /* 광고 틀 공통 스타일 (글자 없음, 꽉 채움) */
+        .ad-area {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+        }
+
+        .top    { grid-area: top; }
+        .bottom { grid-area: bottom; }
+        .left   { grid-area: left; }
+        .right  { grid-area: right; }
+        .main   { 
+            grid-area: main; 
+            display: flex; justify-content: center; align-items: center; 
+            background-color: #ffffff;
+        }
+
+        /* 중앙 변환 박스 */
+        .converter-box {
+            border: 3px solid #000; padding: 60px; text-align: center;
+            width: 400px; background: #fff;
+        }
+        input[type="file"] { margin-bottom: 30px; }
+        .btn-group button {
+            padding: 15px 30px; margin: 5px; cursor: pointer;
+            border: 2px solid #000; background: #fff; font-weight: bold;
+            font-size: 18px;
+        }
+        .btn-group button:hover { background: #000; color: #fff; }
+
+        /* 3초 대기용 하얀색 팝업 */
+        #popup {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background: #ffffff;
+            z-index: 99999; justify-content: center; align-items: center;
+        }
+
+        /* 우측 상단 X (3초 뒤 노출) */
+        #x-btn {
+            display: none; position: absolute; top: 40px; right: 60px;
+            font-size: 120px; font-weight: bold; color: #000;
+            cursor: pointer; user-select: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="wrapper">
+        <div class="ad-area top"></div>
+        <div class="ad-area left"></div>
+        
+        <div class="main">
+            <div class="converter-box">
+                <h1 style="margin-top:0; letter-spacing:3px;">CONVERTER</h1>
+                <input type="file" id="targetFile">
+                <div class="btn-group">
+                    <button onclick="startConvert('png')">PNG</button>
+                    <button onclick="startConvert('jpg')">JPG</button>
+                    <button onclick="startConvert('pdf')">PDF</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="ad-area right"></div>
+        <div class="ad-area bottom"></div>
+    </div>
+
+    <div id="popup">
+        <div id="x-btn">×</div>
+    </div>
+
+    <script>
+        let selectedMode = '';
+
+        function startConvert(mode) {
+            const fileCheck = document.getElementById('targetFile').files[0];
+            if(!fileCheck) return alert('파일을 먼저 선택하세요.');
+
+            selectedMode = mode;
+            const popup = document.getElementById('popup');
+            const xBtn = document.getElementById('x-btn');
+
+            // 1. 하얀 화면 즉시 노출
+            popup.style.display = 'flex';
+            xBtn.style.display = 'none';
+
+            // 2. 3초 후 X 버튼 나타남
+            setTimeout(() => {
+                xBtn.style.display = 'block';
+            }, 3000);
+
+            // 3. X 클릭 시 변환 및 다운로드
+            xBtn.onclick = function() {
+                popup.style.display = 'none';
+                handleFileSave(selectedMode);
+            };
+        }
+
+        function handleFileSave(mode) {
+            const file = document.getElementById('targetFile').files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width; canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+
+                    if (mode === 'pdf') {
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF(img.width > img.height ? 'l' : 'p', 'px', [img.width, img.height]);
+                        pdf.addImage(img.src, 'JPEG', 0, 0, img.width, img.height);
+                        pdf.save("output.pdf");
+                    } else {
+                        const link = document.createElement('a');
+                        link.download = `output.${mode}`;
+                        link.href = canvas.toDataURL(`image/${mode}`);
+                        link.click();
+                    }
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+    </script>
+</body>
+</html>
